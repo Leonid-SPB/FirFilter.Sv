@@ -1,0 +1,13 @@
+work/
+db/
+incremental_db/
+output_files/
+simulation/
+
+*.rpt
+*.done
+*.summary
+*.qws
+*.wlf
+transcript
+*.bak
