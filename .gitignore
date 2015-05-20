@@ -11,3 +11,4 @@ simulation/
 *.wlf
 transcript
 *.bak
+/sim/outfile.dat

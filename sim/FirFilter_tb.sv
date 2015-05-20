@@ -57,7 +57,10 @@ logic [INPUT_WIDTH - 1: 0]  din      = '0;
 logic                       valid_out;
 logic [OUTPUT_WIDTH - 1: 0] dout;
 
-
+// in/out files
+string InFileName  = "infile.dat";
+string OutFileName = "outfile.dat";
+int inFile, outFile;
 //-------------------------------------------------------------------------------------------
 
 // Clock generator
@@ -91,15 +94,18 @@ DUT
     .*
 );
 
+task automatic reset(int duration);
+    @cb;
+    cb.rst        <= 1'b1;
+    ##duration;
+    cb.rst        <= 1'b0;
+    ##4;
+endtask
 
 task automatic stepResponse();
     $display("stepResponse test");
 
-    @cb;
-    cb.rst        <= 1'b1;
-    ##10;
-    cb.rst        <= 1'b0;
-    ##4;
+    reset(10);
 
     cb.din[INPUT_WIDTH - 1]    <= '1;
     cb.din[INPUT_WIDTH - 2: 0] <= '0;
@@ -114,11 +120,7 @@ endtask
 task automatic pulseResponse();
     $display("pulseResponse test");
 
-    @cb;
-    cb.rst        <= 1'b1;
-    ##10;
-    cb.rst        <= 1'b0;
-    ##4;
+    reset(10);
 
     cb.din[INPUT_WIDTH - 1]    <= '1;
     cb.din[INPUT_WIDTH - 2: 0] <= '0;
@@ -133,11 +135,7 @@ endtask
 task automatic resetResponse();
     $display("resetResponse test");
 
-    @cb;
-    cb.rst        <= 1'b1;
-    ##10;
-    cb.rst        <= 1'b0;
-    ##4;
+    reset(10);
 
     ##200;
 endtask
@@ -148,12 +146,35 @@ begin
     $display("*******************************************");
     $display("Fir filter test");
     $display("*******************************************");
+    
+    // initial reset
+    reset(10);
+    
+    outFile = $fopen(OutFileName, "w");
+    if (!outFile) begin
+        $error("Unable to open output file for writing");
+    end
+    
+    dumper: fork
+        doutDumper();
+    join_none;
 
     pulseResponse();
     stepResponse();
     resetResponse();
 
     $stop(1);
+    disable dumper;
+    $fclose(outFile);
 end
+
+// Output dumper
+task automatic doutDumper();
+    forever begin
+        @cb;
+        //if (cb.valid_out)
+            $fwrite(outFile, "%x ", cb.dout);
+    end
+endtask
 
 endmodule
