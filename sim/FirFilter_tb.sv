@@ -65,6 +65,19 @@ string OutFileName = "outfile.dat";
 int inFile, outFile;
 //-------------------------------------------------------------------------------------------
 
+/// calculate full precision output width
+function automatic int calcOutWidthFull();
+    longint Acc = 0;
+
+    for (int i = 0; i < NUM_TAPS; ++i) begin
+        longint tmp = $signed(COEFFS[i]);
+        tmp = (tmp >= 0) ? tmp : -tmp;
+        Acc += tmp;
+    end
+
+    return $clog2(Acc) + INPUT_WIDTH;
+endfunction
+
 // Clock generator
 initial
 begin
@@ -84,6 +97,7 @@ FirFilter
     .INPUT_WIDTH        (INPUT_WIDTH),
     .COEFF_WIDTH        (COEFF_WIDTH),
     .OUTPUT_WIDTH       (OUTPUT_WIDTH),
+    .OUTPUT_WIDTH_FULL  (calcOutWidthFull()),
     .SYMMETRY           (SYMMETRY),
     .NUM_TAPS           (NUM_TAPS),
     .COEFFS             (COEFFS),

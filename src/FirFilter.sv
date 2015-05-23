@@ -29,7 +29,8 @@ module FirFilter
 #(
     parameter INPUT_WIDTH        = 16,
     parameter COEFF_WIDTH        = 8,
-    parameter OUTPUT_WIDTH       = 26,
+    parameter OUTPUT_WIDTH       = 16, // desired output width (truncate LSB or sign-extend actual result width)
+    parameter OUTPUT_WIDTH_FULL  = 26, // full precision output width
 
     parameter SYMMETRY           = 1, // 0 - Non-symmetric, 1 - Symmetric, 2 - Anti-symmetric
     parameter NUM_TAPS           = 37,
@@ -52,22 +53,6 @@ module FirFilter
     input   logic [INPUT_WIDTH - 1: 0]  din,
     output  logic [OUTPUT_WIDTH - 1: 0] dout
 );
-
-/// calculate full precision output width
-function automatic int calcOutWidthFull();
-    longint Acc = 0;
-
-    for (int i = 0; i < NUM_TAPS; ++i) begin
-        longint tmp = $signed(COEFFS[i]);
-        tmp = (tmp >= 0) ? tmp : -tmp;
-        Acc += tmp;
-    end
-
-    return $clog2(Acc) + INPUT_WIDTH;
-endfunction
-
-// localparams
-localparam OUTPUT_WIDTH_FULL = calcOutWidthFull();
 
 // signals
 logic valid_dl, valid_to;
