@@ -18,13 +18,14 @@
 #
 # Quartus II 64-Bit
 # Version 13.1.4 Build 182 03/12/2014 SJ Web Edition
-# Date created = 00:32:02  May 20, 2015
+# Date created = 23:20:07  May 23, 2015
 #
 # -------------------------------------------------------------------------- #
 
 QUARTUS_VERSION = "13.1"
-DATE = "00:32:02  May 20, 2015"
+DATE = "23:20:07  May 23, 2015"
 
 # Revisions
 
-PROJECT_REVISION = "Fir_filter"
+PROJECT_REVISION = "Fir_filter_ns"
+PROJECT_REVISION = "Fir_filter_s"

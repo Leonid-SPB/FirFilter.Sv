@@ -24,22 +24,18 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
-module FirFilterSymmetric
+// Binary adder tree for FIR filter with multipliers on entry level
+module FirFilterBTree
 #(
-    parameter INPUT_WIDTH        = 16,
+    parameter SAMPLE_WIDTH       = 16,
     parameter COEFF_WIDTH        = 8,
-    parameter OUTPUT_WIDTH       = 26,
-    parameter OUTPUT_WIDTH_FULL  = 26,
-
-    parameter SYMMETRY           = 0,  // 0 - Symmetric, 1 - Anti-symmetric
-    parameter NUM_TAPS           = 37, // number of taps total
-    parameter logic [COEFF_WIDTH - 1: 0] COEFFS [0: NUM_TAPS - 1] = '{8, 6, 0, -7, -11, -8, 0, 10, 16, 12, 0, -16, -26, -22, 0, 38, 80, 114, 127, 114, 80, 38, 0, -22, -26, -16, 0, 12, 16, 10, 0, -8, -11, -7, 0, 6, 8},
+    parameter NUM_TAPS           = 37,
+    parameter OUTPUT_WIDTH       = SAMPLE_WIDTH + COEFF_WIDTH + $clog2(NUM_TAPS),
 
     parameter PIPELINE_MUL       = 1, // pipeline register for multiplier
-    parameter PIPELINE_PREADD    = 1, // pipeline pre-adder
-    parameter PIPELINE_ADD_RATIO = 1, // pipeline ratio for adders (1 - register for each adder, 2 - register for every other adder, 3 - ...)
-    parameter OUTPUT_REG         = 1  // filter output register
+    parameter PIPELINE_ADD_RATIO = 1, // pipeline ratio for adders (0 - no registers, 1 - register for each adder,
+                                      //                            2 - register for every other adder, 3 - ...)
+    parameter OUTPUT_REG         = 0  // output register
 )
 (
     input   logic                       clk,
@@ -49,7 +45,8 @@ module FirFilterSymmetric
     output  logic                       valid_out,
 
     // data in/out
-    input   logic [INPUT_WIDTH - 1: 0]  din,
+    input   logic [SAMPLE_WIDTH - 1: 0] samples [0: NUM_TAPS - 1],
+    input   logic [COEFF_WIDTH - 1: 0]  coeffs  [0: NUM_TAPS - 1],
     output  logic [OUTPUT_WIDTH - 1: 0] dout
 );
 
@@ -65,85 +62,28 @@ function automatic int calcNi(int TapsNum, int lvl);
 endfunction
 
 /// Local parameters
-localparam TreeLevels = $clog2(NUM_TAPS) - 1; // number of adder tree levels
+localparam TreeLevels = $clog2(NUM_TAPS); // number of adder tree levels
 localparam TreeWidth0 = 1 << TreeLevels;  // number of elements in entry level
-localparam TreeLinkWidthMin = INPUT_WIDTH + COEFF_WIDTH + 1;     // minimal bit width of adder tree link
+localparam TreeLinkWidthMin = SAMPLE_WIDTH + COEFF_WIDTH;     // minimal bit width of adder tree link
 localparam TreeLinkWidthMax = TreeLinkWidthMin + TreeLevels; // maximal bit width of adder tree link
-localparam SymmetricSamplesCount = (NUM_TAPS + NUM_TAPS % 2) / 2;
 
 // Signals
-logic [INPUT_WIDTH - 1: 0] delayLine [0: NUM_TAPS - 1];
-logic [INPUT_WIDTH: 0] symSamples [0: SymmetricSamplesCount - 1];
 logic [TreeLinkWidthMax - 1: 0] adderTreeLinks [TreeLevels: 0] [TreeWidth0 - 1: 0];
-logic [OUTPUT_WIDTH_FULL - 1: 0] doutFullPrec;
 logic [OUTPUT_WIDTH - 1: 0] dout_i;
-logic valid_d, valid_pa;
 logic valid_i[TreeLevels: 0];
 genvar i;
 genvar j;
 
-
-// input stage and delay line
-always_ff @(posedge clk) begin
-    if (rst) begin
-        for (int i = 0; i < NUM_TAPS; ++i) begin
-            delayLine[i] <= '0;
-        end
-    end else begin
-        if (valid_in) begin
-            delayLine[0] <= din;
-            for (int i = 1; i < NUM_TAPS; ++i) begin
-                delayLine[i] <= delayLine[i - 1];
-            end
-        end
-    end
-
-    valid_d <= (~rst) & valid_in;
-end
-
-// preadder: add/sub symmetric coefficients
-generate
-    if (PIPELINE_PREADD) begin
-        always_ff @(posedge clk) begin : preadd
-            for (int i = 0; i < NUM_TAPS / 2; ++i) begin
-                if (SYMMETRY == 0) begin // symmetric
-                    symSamples[i] <= $signed(delayLine[i]) + $signed(delayLine[NUM_TAPS - 1 - i]);
-                end else begin // anti-symmetric
-                    symSamples[i] <= $signed(delayLine[i]) - $signed(delayLine[NUM_TAPS - 1 - i]);
-                end
-            end
-            if (NUM_TAPS % 2 != 0) begin
-                symSamples[NUM_TAPS / 2] <= $signed(delayLine[NUM_TAPS / 2]);
-            end
-
-            valid_pa <= (~rst) & valid_d;
-        end
-    end else begin
-        for (i = 0; i < NUM_TAPS / 2; ++i) begin : preadd
-            if (SYMMETRY == 0) begin // symmetric
-                assign symSamples[i] = $signed(delayLine[i]) + $signed(delayLine[NUM_TAPS - 1 - i]);
-            end else begin // anti-symmetric
-                assign symSamples[i] = $signed(delayLine[i]) - $signed(delayLine[NUM_TAPS - 1 - i]);
-            end
-        end
-        if (NUM_TAPS % 2 != 0) begin
-            assign symSamples[NUM_TAPS / 2] = $signed(delayLine[NUM_TAPS / 2]);
-        end
-        assign valid_pa = valid_d;
-    end
-endgenerate
-
-
 // mul stage
 generate
     for (i = 0; i < TreeWidth0; ++i) begin : mul
-        if (i < SymmetricSamplesCount) begin
+        if (i < NUM_TAPS) begin
             if (PIPELINE_MUL) begin
                 always_ff @(posedge clk) begin
-                    adderTreeLinks[0][i][TreeLinkWidthMin - 1: 0] <= $signed(symSamples[i]) * $signed(COEFFS[i]);
+                    adderTreeLinks[0][i][TreeLinkWidthMin - 1: 0] <= $signed(samples[i]) * $signed(coeffs[i]);
                 end
             end else begin
-                assign adderTreeLinks[0][i][TreeLinkWidthMin - 1: 0] = $signed(symSamples[i]) * $signed(COEFFS[i]);
+                assign adderTreeLinks[0][i][TreeLinkWidthMin - 1: 0] = $signed(samples[i]) * $signed(coeffs[i]);
             end
         end else begin
             assign adderTreeLinks[0][i] = '0;
@@ -152,10 +92,10 @@ generate
 
     if (PIPELINE_MUL) begin
         always_ff @(posedge clk) begin
-            valid_i[0] <= (~rst) & valid_pa;
+            valid_i[0] <= (~rst) & valid_in;
         end
     end else begin
-        assign valid_i[0] = valid_pa;
+        assign valid_i[0] = valid_in;
     end
 endgenerate
 
@@ -163,9 +103,8 @@ endgenerate
 generate
     for (j = 1; j <= TreeLevels; ++j) begin : adderTree
         for (i = 0; i < (TreeWidth0 >> j); ++i) begin : add
-            localparam Ni = calcNi(SymmetricSamplesCount, j);
-            if ( (i < Ni - 1) || ((TreeWidth0 >> j) == Ni) ) begin // sum input pairs from previous layer
-                if (j % PIPELINE_ADD_RATIO == 0) begin
+            if ( (i < calcNi(NUM_TAPS, j) - 1) || ((TreeWidth0 >> j) == calcNi(NUM_TAPS, j)) ) begin // sum input pairs from previous layer
+                if (PIPELINE_ADD_RATIO && (j % PIPELINE_ADD_RATIO == 0)) begin
                     always_ff @(posedge clk) begin
                         adderTreeLinks[j][i][TreeLinkWidthMin - 1 + j: 0] <= $signed(adderTreeLinks[j - 1][2 * i    ][TreeLinkWidthMin - 1 + (j - 1): 0]) +
                                                                              $signed(adderTreeLinks[j - 1][2 * i + 1][TreeLinkWidthMin - 1 + (j - 1): 0]);
@@ -174,8 +113,8 @@ generate
                     assign adderTreeLinks[j][i][TreeLinkWidthMin - 1 + j: 0] = $signed(adderTreeLinks[j - 1][2 * i    ][TreeLinkWidthMin - 1 + (j - 1): 0]) +
                                                                                $signed(adderTreeLinks[j - 1][2 * i + 1][TreeLinkWidthMin - 1 + (j - 1): 0]);
                 end
-            end else if (i == Ni - 1) begin // single input, sign extend and pass to the next level
-                if (j % PIPELINE_ADD_RATIO == 0) begin
+            end else if (i == calcNi(NUM_TAPS, j) - 1) begin // single input, sign extend and pass to the next level
+                if (PIPELINE_ADD_RATIO && (j % PIPELINE_ADD_RATIO == 0)) begin
                     always_ff @(posedge clk) begin
                         adderTreeLinks[j][i][TreeLinkWidthMin - 1 + j: 0] <= $signed(adderTreeLinks[j - 1][2 * i][TreeLinkWidthMin - 1 + (j - 1): 0]);
                     end
@@ -187,7 +126,7 @@ generate
             end
         end
 
-        if (j % PIPELINE_ADD_RATIO == 0) begin
+        if (PIPELINE_ADD_RATIO && (j % PIPELINE_ADD_RATIO == 0)) begin
             always_ff @(posedge clk) begin
                 valid_i[j] <= (~rst) & valid_i[j - 1];
             end
@@ -197,18 +136,11 @@ generate
     end
 endgenerate
 
-// full precision output
-assign doutFullPrec = adderTreeLinks[TreeLevels][0][OUTPUT_WIDTH_FULL - 1: 0];
+// output, truncates MSB if necessary
+assign dout_i = adderTreeLinks[TreeLevels][0][OUTPUT_WIDTH - 1: 0];
 
-//output reg
+// output reg
 generate
-    if (OUTPUT_WIDTH <= OUTPUT_WIDTH_FULL) begin
-        //truncate LSB
-        assign dout_i = doutFullPrec[OUTPUT_WIDTH_FULL - 1: OUTPUT_WIDTH_FULL - OUTPUT_WIDTH];
-    end else begin
-        assign dout_i = $signed(doutFullPrec);
-    end
-
     if (OUTPUT_REG) begin
         always_ff @(posedge clk) begin
             dout      <= (rst) ? '0   : dout_i;
