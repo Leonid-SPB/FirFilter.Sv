@@ -12,3 +12,9 @@ simulation/
 transcript
 *.bak
 /sim/outfile.dat
+
+*.cache/
+*.hw/
+*.ioplanning/
+*.runs/
+*.sim/
