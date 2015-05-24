@@ -163,27 +163,14 @@ endgenerate
 generate
     for (j = 1; j <= TreeLevels; ++j) begin : adderTree
         for (i = 0; i < (TreeWidth0 >> j); ++i) begin : add
-            localparam Ni = calcNi(SymmetricSamplesCount, j);
-            if ( (i < Ni - 1) || ((TreeWidth0 >> j) == Ni) ) begin // sum input pairs from previous layer
-                if (PIPELINE_ADD_RATIO && (j % PIPELINE_ADD_RATIO == 0)) begin
-                    always_ff @(posedge clk) begin
-                        adderTreeLinks[j][i][TreeLinkWidthMin - 1 + j: 0] <= $signed(adderTreeLinks[j - 1][2 * i    ][TreeLinkWidthMin - 1 + (j - 1): 0]) +
-                                                                             $signed(adderTreeLinks[j - 1][2 * i + 1][TreeLinkWidthMin - 1 + (j - 1): 0]);
-                    end
-                end else begin
-                    assign adderTreeLinks[j][i][TreeLinkWidthMin - 1 + j: 0] = $signed(adderTreeLinks[j - 1][2 * i    ][TreeLinkWidthMin - 1 + (j - 1): 0]) +
-                                                                               $signed(adderTreeLinks[j - 1][2 * i + 1][TreeLinkWidthMin - 1 + (j - 1): 0]);
-                end
-            end else if (i == Ni - 1) begin // single input, sign extend and pass to the next level
-                if (PIPELINE_ADD_RATIO && (j % PIPELINE_ADD_RATIO == 0)) begin
-                    always_ff @(posedge clk) begin
-                        adderTreeLinks[j][i][TreeLinkWidthMin - 1 + j: 0] <= $signed(adderTreeLinks[j - 1][2 * i][TreeLinkWidthMin - 1 + (j - 1): 0]);
-                    end
-                end else begin
-                    assign adderTreeLinks[j][i][TreeLinkWidthMin - 1 + j: 0] = $signed(adderTreeLinks[j - 1][2 * i][TreeLinkWidthMin - 1 + (j - 1): 0]);
+            if (PIPELINE_ADD_RATIO && (j % PIPELINE_ADD_RATIO == 0)) begin
+                always_ff @(posedge clk) begin
+                    adderTreeLinks[j][i][TreeLinkWidthMin - 1 + j: 0] <= $signed(adderTreeLinks[j - 1][2 * i    ][TreeLinkWidthMin - 1 + (j - 1): 0]) +
+                                                                         $signed(adderTreeLinks[j - 1][2 * i + 1][TreeLinkWidthMin - 1 + (j - 1): 0]);
                 end
             end else begin
-                assign adderTreeLinks[j][i][TreeLinkWidthMin - 1 + j: 0] = '0;
+                assign adderTreeLinks[j][i][TreeLinkWidthMin - 1 + j: 0] = $signed(adderTreeLinks[j - 1][2 * i    ][TreeLinkWidthMin - 1 + (j - 1): 0]) +
+                                                                           $signed(adderTreeLinks[j - 1][2 * i + 1][TreeLinkWidthMin - 1 + (j - 1): 0]);
             end
         end
 
