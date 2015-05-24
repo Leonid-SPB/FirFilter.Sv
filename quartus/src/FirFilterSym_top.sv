@@ -24,14 +24,14 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Non-symmetric FIR filter implementation top level file
-module FirFilterTop_ns
+// Symmetric FIR filter implementation top level file
+module FirFilterSym_top
 #(
     parameter INPUT_WIDTH        = 16,
     parameter COEFF_WIDTH        = 8,
     parameter OUTPUT_WIDTH       = 26,
 
-    parameter SYMMETRY           = 0, // 0 - Non-symmetric, 1 - Symmetric, 2 - Anti-symmetric
+    parameter SYMMETRY           = 1, // 0 - Non-symmetric, 1 - Symmetric, 2 - Anti-symmetric
     parameter NUM_TAPS           = 37,
     parameter logic [COEFF_WIDTH - 1: 0] COEFFS [0: NUM_TAPS - 1] = '{8, 6, 0, -7, -11, -8, 0, 10, 16, 12, 0, -16, -26, -22, 0, 38, 80, 114, 127, 114, 80, 38, 0, -22, -26, -16, 0, 12, 16, 10, 0, -8, -11, -7, 0, 6, 8},
 
