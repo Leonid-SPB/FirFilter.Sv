@@ -30,6 +30,7 @@ module FirFilter_tb
 /// TB params
 timeunit 1ns;
 localparam CLK_CYCLE    = 10ns;
+localparam RESP_TIMEOUT = 200;
 
 /// Fir filter params
 localparam INPUT_WIDTH  = 16;
@@ -122,21 +123,23 @@ endtask
 task automatic stepResponse();
     $display("stepResponse test");
 
+    cb.valid_in <= 1'b0;
     reset(10);
 
     cb.din[INPUT_WIDTH - 1]    <= '1;
     cb.din[INPUT_WIDTH - 2: 0] <= '0;
     cb.valid_in <= 1'b1;
     ##(NUM_TAPS);
-    cb.din <= '0;
-    cb.valid_in <= 1'b0;
+    //cb.din <= '0;
+    //cb.valid_in <= 1'b0;
 
-    ##200;
+    ##RESP_TIMEOUT;
 endtask
 
 task automatic pulseResponse();
     $display("pulseResponse test");
 
+    cb.valid_in <= 1'b0;
     reset(10);
 
     cb.din[INPUT_WIDTH - 1]    <= '1;
@@ -145,16 +148,19 @@ task automatic pulseResponse();
     ##1
     cb.din <= '0;
     ##(NUM_TAPS - 1);
+    //cb.valid_in <= 1'b0;
 
-    ##200;
+    ##RESP_TIMEOUT;
 endtask
 
 task automatic resetResponse();
     $display("resetResponse test");
-
+    
+    cb.din <= '0;
+    cb.valid_in <= 1'b0;
     reset(10);
 
-    ##200;
+    ##RESP_TIMEOUT;
 endtask
 
 // Test control
