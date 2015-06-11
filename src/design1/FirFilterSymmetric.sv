@@ -24,7 +24,7 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
+// Direct form parallel FIR filter, symmetric
 module FirFilterSymmetric
 #(
     parameter INPUT_WIDTH        = 16,

@@ -37,7 +37,7 @@ localparam INPUT_WIDTH  = 16;
 localparam COEFF_WIDTH  = 8;
 localparam OUTPUT_WIDTH = 26;
 
-localparam SYMMETRY     = 0; // 0 - Non-symmetric, 1 - Symmetric, 2 - Anti-symmetric
+localparam SYMMETRY     = 1; // 0 - Non-symmetric, 1 - Symmetric, 2 - Anti-symmetric
 localparam NUM_TAPS     = 37;
 localparam logic [COEFF_WIDTH - 1: 0] COEFFS [0: NUM_TAPS - 1] = '{8, 6, 0, -7, -11, -8, 0, 10, 16, 12, 0, -16, -26, -22, 0, 38, 80, 114, 127, 114, 80, 38, 0, -22, -26, -16, 0, 12, 16, 10, 0, -8, -11, -7, 0, 6, 8};
 
