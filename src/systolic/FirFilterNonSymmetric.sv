@@ -90,14 +90,7 @@ end
 generate
     if (PIPELINE_MUL) begin
         always_ff @(posedge clk) begin
-            if (rst) begin
-                prod[0]     <= '0;
-            end else begin
-                if (valid_d) begin
-                    prod[0] <= $signed(dlTaps[0]) * $signed(COEFFS[0]);
-                end
-            end
-
+            prod[0] <= $signed(dlTaps[0]) * $signed(COEFFS[0]);
             valid_m <= (~rst) & valid_d;
         end
     end else begin
@@ -106,12 +99,8 @@ generate
     end
 
     always_ff @(posedge clk) begin
-        if (rst) begin
-            accum[0][AccWidthMin - 1: 0]     <= '0;
-        end else begin
-            if (valid_m) begin
-                accum[0][AccWidthMin - 1: 0] <= prod[0];
-            end
+        if (valid_m) begin
+            accum[0][AccWidthMin - 1: 0] <= prod[0];
         end
     end
 
@@ -130,25 +119,15 @@ generate
     for (i = 1; i < NUM_TAPS; ++i) begin : mac_inst
         if (PIPELINE_MUL) begin
             always_ff @(posedge clk) begin
-                if (rst) begin
-                    prod[i]     <= '0;
-                end else begin
-                    if (valid_d) begin
-                        prod[i] <= $signed(dlTaps[2 * i]) * $signed(COEFFS[i]);
-                    end
-                end
+                prod[i] <= $signed(dlTaps[2 * i]) * $signed(COEFFS[i]);
             end
         end else begin
             assign prod[i] = $signed(dlTaps[2 * i]) * $signed(COEFFS[i]);
         end
 
         always_ff @(posedge clk) begin
-            if (rst) begin
-                accum[i][AccWidthMin + $clog2(i + 1) - 1: 0] <= '0;
-            end else begin
-                if (valid_m) begin
-                    accum[i][AccWidthMin + $clog2(i + 1) - 1: 0] <= $signed(prod[i]) + $signed(accum[i - 1][AccWidthMin + $clog2(i) - 1: 0]);
-                end
+            if (valid_m) begin
+                accum[i][AccWidthMin + $clog2(i + 1) - 1: 0] <= $signed(prod[i]) + $signed(accum[i - 1][AccWidthMin + $clog2(i) - 1: 0]);
             end
         end
     end

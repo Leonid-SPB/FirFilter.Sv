@@ -94,23 +94,15 @@ generate
     localparam SDIndex = (NUM_TAPS % 2) ?  (2 * SymTapsNum - 2) : (2 * SymTapsNum - 1);
     if (PIPELINE_PREADD) begin
         always_ff @(posedge clk) begin : preadd
-            if (rst) begin
-                for (int i = 0; i < SymTapsNum; ++i) begin
-                    ssum[i] <= '0;
+            for (int i = 0; i < NUM_TAPS / 2; ++i) begin
+                if (SYMMETRY == 0) begin // symmetric
+                    ssum[i] <= $signed(dlTaps[2 * i]) + $signed(dlTaps[SDIndex]);
+                end else begin // anti-symmetric
+                    ssum[i] <= $signed(dlTaps[2 * i]) - $signed(dlTaps[SDIndex]);
                 end
-            end else begin
-                if (valid_d) begin
-                    for (int i = 0; i < NUM_TAPS / 2; ++i) begin
-                        if (SYMMETRY == 0) begin // symmetric
-                            ssum[i] <= $signed(dlTaps[2 * i]) + $signed(dlTaps[SDIndex]);
-                        end else begin // anti-symmetric
-                            ssum[i] <= $signed(dlTaps[2 * i]) - $signed(dlTaps[SDIndex]);
-                        end
-                    end
-                    if (NUM_TAPS % 2 != 0) begin
-                        ssum[NUM_TAPS / 2] <= $signed(dlTaps[SDIndex]);
-                    end
-                end
+            end
+            if (NUM_TAPS % 2 != 0) begin
+                ssum[NUM_TAPS / 2] <= $signed(dlTaps[SDIndex]);
             end
             valid_pa <= (~rst) & valid_d;
         end
@@ -133,13 +125,7 @@ endgenerate
 generate
     if (PIPELINE_MUL) begin
         always_ff @(posedge clk) begin
-            if (rst) begin
-                prod[0]     <= '0;
-            end else begin
-                if (valid_pa) begin
-                    prod[0] <= $signed(ssum[0]) * $signed(COEFFS[0]);
-                end
-            end
+            prod[0] <= $signed(ssum[0]) * $signed(COEFFS[0]);
 
             valid_m <= (~rst) & valid_pa;
         end
@@ -149,12 +135,8 @@ generate
     end
 
     always_ff @(posedge clk) begin
-        if (rst) begin
-            accum[0][AccWidthMin - 1: 0]     <= '0;
-        end else begin
-            if (valid_m) begin
-                accum[0][AccWidthMin - 1: 0] <= prod[0];
-            end
+        if (valid_m) begin
+            accum[0][AccWidthMin - 1: 0] <= prod[0];
         end
     end
 
@@ -173,25 +155,15 @@ generate
     for (i = 1; i < SymTapsNum; ++i) begin : mac_inst
         if (PIPELINE_MUL) begin
             always_ff @(posedge clk) begin
-                if (rst) begin
-                    prod[i]     <= '0;
-                end else begin
-                    if (valid_d) begin
-                        prod[i] <= $signed(ssum[i]) * $signed(COEFFS[i]);
-                    end
-                end
+                prod[i] <= $signed(ssum[i]) * $signed(COEFFS[i]);
             end
         end else begin
             assign prod[i] = $signed(ssum[i]) * $signed(COEFFS[i]);
         end
 
         always_ff @(posedge clk) begin
-            if (rst) begin
-                accum[i][AccWidthMin + $clog2(i + 1) - 1: 0] <= '0;
-            end else begin
-                if (valid_m) begin
-                    accum[i][AccWidthMin + $clog2(i + 1) - 1: 0] <= $signed(prod[i]) + $signed(accum[i - 1][AccWidthMin + $clog2(i) - 1: 0]);
-                end
+            if (valid_m) begin
+                accum[i][AccWidthMin + $clog2(i + 1) - 1: 0] <= $signed(prod[i]) + $signed(accum[i - 1][AccWidthMin + $clog2(i) - 1: 0]);
             end
         end
     end
