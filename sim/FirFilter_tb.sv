@@ -30,7 +30,7 @@ module FirFilter_tb
 /// TB params
 timeunit 1ns;
 localparam CLK_CYCLE    = 10ns;
-localparam RESP_TIMEOUT = 200;
+localparam RESP_TIMEOUT = 100;
 
 /// Fir filter params
 localparam INPUT_WIDTH  = 16;
@@ -123,33 +123,45 @@ endtask
 task automatic stepResponse();
     $display("stepResponse test");
 
+    //reset
     cb.valid_in <= 1'b0;
     reset(10);
 
+    //drive step
     cb.din[INPUT_WIDTH - 1]    <= '1;
     cb.din[INPUT_WIDTH - 2: 0] <= '0;
     cb.valid_in <= 1'b1;
     ##(NUM_TAPS);
-    //cb.din <= '0;
-    //cb.valid_in <= 1'b0;
-
+    
+    //flush filter pipeline
+    ##(RESP_TIMEOUT);
+    
+    //release data valid
+    cb.din <= '0;
+    cb.valid_in <= 1'b0;
     ##RESP_TIMEOUT;
 endtask
 
 task automatic pulseResponse();
     $display("pulseResponse test");
 
+    //reset
     cb.valid_in <= 1'b0;
     reset(10);
 
+    //drive pulse
     cb.din[INPUT_WIDTH - 1]    <= '1;
     cb.din[INPUT_WIDTH - 2: 0] <= '0;
     cb.valid_in <= 1'b1;
     ##1
     cb.din <= '0;
     ##(NUM_TAPS - 1);
-    //cb.valid_in <= 1'b0;
+    
+    //flush filter pipeline
+    ##(RESP_TIMEOUT);
 
+    //release data valid
+    cb.valid_in <= 1'b0;
     ##RESP_TIMEOUT;
 endtask
 
@@ -160,6 +172,43 @@ task automatic resetResponse();
     cb.valid_in <= 1'b0;
     reset(10);
 
+    ##RESP_TIMEOUT;
+endtask
+
+task automatic stepResponseGaps();
+    $display("stepResponse test with gaps");
+
+    //reset
+    cb.valid_in <= 1'b0;
+    reset(10);
+
+    //drive step
+    for (int i = 0; i < NUM_TAPS; ++i) begin
+        cb.din[INPUT_WIDTH - 1]    <= '1;
+        cb.din[INPUT_WIDTH - 2: 0] <= '0;
+        cb.valid_in <= 1'b1;
+        ##1;
+        cb.valid_in                <= 1'b0;
+        
+        if (i%3 == 0) begin
+            cb.din                 <= '0;
+            ##1;
+        end
+        if (i%2 == 0) begin
+            cb.din[INPUT_WIDTH - 2: 0] <= '1;
+            ##1;
+        end
+    end
+    
+    //flush filter pipeline
+    cb.din[INPUT_WIDTH - 1]    <= '1;
+    cb.din[INPUT_WIDTH - 2: 0] <= '0;
+    cb.valid_in <= 1'b1;
+    ##(RESP_TIMEOUT);
+    
+    //release data valid
+    cb.din <= '0;
+    cb.valid_in <= 1'b0;
     ##RESP_TIMEOUT;
 endtask
 
@@ -185,6 +234,7 @@ begin
     pulseResponse();
     stepResponse();
     resetResponse();
+    stepResponseGaps();
 
     $stop(1);
     disable dumper;

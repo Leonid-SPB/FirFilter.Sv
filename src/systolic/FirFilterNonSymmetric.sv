@@ -24,20 +24,19 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Systolic MAC parallel FIR filter, symmetric
-module FirFilterSymmetric
+// Systolic MAC parallel FIR filter, non-symmetric
+module FirFilterNonSymmetric
 #(
     parameter INPUT_WIDTH        = 16,
     parameter COEFF_WIDTH        = 8,
     parameter OUTPUT_WIDTH       = 26,
     parameter OUTPUT_WIDTH_FULL  = 26,
 
-    parameter SYMMETRY           = 0,  // 0 - Symmetric, 1 - Anti-symmetric
     parameter NUM_TAPS           = 37,
     parameter logic [COEFF_WIDTH - 1: 0] COEFFS [0: NUM_TAPS - 1] = '{8, 6, 0, -7, -11, -8, 0, 10, 16, 12, 0, -16, -26, -22, 0, 38, 80, 114, 127, 114, 80, 38, 0, -22, -26, -16, 0, 12, 16, 10, 0, -8, -11, -7, 0, 6, 8},
 
     parameter PIPELINE_MUL       = 1, // pipeline register for multiplier
-    parameter PIPELINE_PREADD    = 1, // pipeline pre-adder
+    parameter PIPELINE_ADD       = 1, // pipeline adders
     parameter OUTPUT_REG         = 1  // filter output register
 )
 (
@@ -53,19 +52,17 @@ module FirFilterSymmetric
 );
 
 /// Local parameters
-localparam SymTapsNum  = (NUM_TAPS + NUM_TAPS % 2) / 2;
-localparam AccWidthMin = INPUT_WIDTH + 1 + COEFF_WIDTH;             // minimal bit width of accumulator
-localparam AccWidthMax = AccWidthMin - 1 + (1 << $clog2(NUM_TAPS)); // maximal bit width of accumulator
+localparam AccWidthMin = INPUT_WIDTH + COEFF_WIDTH;             // minimal bit width of accumulator
+localparam AccWidthMax = AccWidthMin + (1 << $clog2(NUM_TAPS)); // maximal bit width of accumulator
 
 // Signals
-logic [INPUT_WIDTH - 1: 0] dlTaps [0: 2 * SymTapsNum - 1];
-logic [INPUT_WIDTH: 0]     ssum [SymTapsNum - 1: 0];
-logic [AccWidthMin - 1: 0] prod [SymTapsNum - 1: 0];
-logic [AccWidthMax - 1: 0] accum [SymTapsNum - 1: 0];
+logic [INPUT_WIDTH - 1: 0] dlTaps [0: 2 * NUM_TAPS - 2];
+logic [AccWidthMax - 1: 0] accum [NUM_TAPS - 1: 0];
+logic [AccWidthMin - 1: 0] prod [NUM_TAPS - 1: 0];
 logic [OUTPUT_WIDTH_FULL - 1: 0] dout_full;
-logic [OUTPUT_WIDTH - 1: 0]      dout_i;
-logic valid_d, valid_pa, valid_m;
-logic [$clog2(SymTapsNum): 0] dvCounter;
+logic [OUTPUT_WIDTH - 1: 0] dout_i;
+logic valid_d, valid_m;
+logic [$clog2(NUM_TAPS): 0] dvCounter;
 logic dvCounterOut;
 genvar i;
 genvar j;
@@ -74,13 +71,13 @@ genvar j;
 // input stage and delay line
 always_ff @(posedge clk) begin
     if (rst) begin
-        for (int i = 0; i < (2 * SymTapsNum); ++i) begin
+        for (int i = 0; i < (2 * NUM_TAPS - 1); ++i) begin
             dlTaps[i] <= '0;
         end
     end else begin
         if (valid_in) begin
             dlTaps[0] <= din;
-            for (int i = 1; i < (2 * SymTapsNum); ++i) begin
+            for (int i = 1; i < (2 * NUM_TAPS - 1); ++i) begin
                 dlTaps[i] <= dlTaps[i - 1];
             end
         end
@@ -89,46 +86,6 @@ always_ff @(posedge clk) begin
     valid_d <= (~rst) & valid_in;
 end
 
-// preadder: add/sub symmetric coefficients
-generate
-    localparam SDIndex = (NUM_TAPS % 2) ?  (2 * SymTapsNum - 2) : (2 * SymTapsNum - 1);
-    if (PIPELINE_PREADD) begin
-        always_ff @(posedge clk) begin : preadd
-            if (rst) begin
-                for (int i = 0; i < SymTapsNum; ++i) begin
-                    ssum[i] <= '0;
-                end
-            end else begin
-                if (valid_d) begin
-                    for (int i = 0; i < NUM_TAPS / 2; ++i) begin
-                        if (SYMMETRY == 0) begin // symmetric
-                            ssum[i] <= $signed(dlTaps[2 * i]) + $signed(dlTaps[SDIndex]);
-                        end else begin // anti-symmetric
-                            ssum[i] <= $signed(dlTaps[2 * i]) - $signed(dlTaps[SDIndex]);
-                        end
-                    end
-                    if (NUM_TAPS % 2 != 0) begin
-                        ssum[NUM_TAPS / 2] <= $signed(dlTaps[SDIndex]);
-                    end
-                end
-            end
-            valid_pa <= (~rst) & valid_d;
-        end
-    end else begin
-        for (i = 0; i < NUM_TAPS / 2; ++i) begin : preadd
-            if (SYMMETRY == 0) begin // symmetric
-                assign ssum[i] = $signed(dlTaps[2 * i]) + $signed(dlTaps[SDIndex]);
-            end else begin // anti-symmetric
-                assign ssum[i] = $signed(dlTaps[2 * i]) - $signed(dlTaps[SDIndex]);
-            end
-        end
-        if (NUM_TAPS % 2 != 0) begin
-            assign ssum[NUM_TAPS / 2] = $signed(dlTaps[SDIndex]);
-        end
-        assign valid_pa = valid_d;
-    end
-endgenerate
-
 // systolic tree
 generate
     if (PIPELINE_MUL) begin
@@ -136,16 +93,16 @@ generate
             if (rst) begin
                 prod[0]     <= '0;
             end else begin
-                if (valid_pa) begin
-                    prod[0] <= $signed(ssum[0]) * $signed(COEFFS[0]);
+                if (valid_d) begin
+                    prod[0] <= $signed(dlTaps[0]) * $signed(COEFFS[0]);
                 end
             end
 
-            valid_m <= (~rst) & valid_pa;
+            valid_m <= (~rst) & valid_d;
         end
     end else begin
-        assign prod[0] = $signed(ssum[0]) * $signed(COEFFS[0]);
-        assign valid_m = valid_pa;
+        assign prod[0] = $signed(dlTaps[0]) * $signed(COEFFS[0]);
+        assign valid_m = valid_d;
     end
 
     always_ff @(posedge clk) begin
@@ -168,21 +125,21 @@ generate
             end
         end
      end
-     assign dvCounterOut = (dvCounter == SymTapsNum) ? 1'b1: 1'b0;
+     assign dvCounterOut = (dvCounter == NUM_TAPS) ? 1'b1: 1'b0;
 
-    for (i = 1; i < SymTapsNum; ++i) begin
+    for (i = 1; i < NUM_TAPS; ++i) begin : mac_inst
         if (PIPELINE_MUL) begin
             always_ff @(posedge clk) begin
                 if (rst) begin
                     prod[i]     <= '0;
                 end else begin
                     if (valid_d) begin
-                        prod[i] <= $signed(ssum[i]) * $signed(COEFFS[i]);
+                        prod[i] <= $signed(dlTaps[2 * i]) * $signed(COEFFS[i]);
                     end
                 end
             end
         end else begin
-            assign prod[i] = $signed(ssum[i]) * $signed(COEFFS[i]);
+            assign prod[i] = $signed(dlTaps[2 * i]) * $signed(COEFFS[i]);
         end
 
         always_ff @(posedge clk) begin
@@ -198,7 +155,7 @@ generate
 endgenerate
 
 // full precision output
-assign dout_full = accum[SymTapsNum - 1][OUTPUT_WIDTH_FULL - 1: 0];
+assign dout_full = accum[NUM_TAPS - 1][OUTPUT_WIDTH_FULL - 1: 0];
 
 //output reg
 generate

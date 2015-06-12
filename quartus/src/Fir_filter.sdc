@@ -1,1 +1,1 @@
-create_clock -name {clk} -period "250 MHz" [get_ports {clk}]
+create_clock -name {clk} -period "150 MHz" [get_ports {clk}]
