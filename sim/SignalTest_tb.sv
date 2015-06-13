@@ -109,4 +109,22 @@ i_SignalTester_im
 (
 );
 
+logic [OUTPUT_WIDTH_FULL: 0] doutAbs;
+assign doutAbs = $sqrt($pow($signed(i_SignalTester_re.dout), 2) + $pow($signed(i_SignalTester_im.dout), 2));
+
+// Test control
+initial
+begin
+    $display("*******************************************");
+    $display("Starting signal tests im/re");
+    $display("*******************************************");
+    
+    fork
+        @i_SignalTester_re.finished;
+        @i_SignalTester_im.finished;
+    join
+    $display("*******************************************");
+    $display("Signal tests finished SUCCESSFULLY");
+    $stop(1);
+end
 endmodule

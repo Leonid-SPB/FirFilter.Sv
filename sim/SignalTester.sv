@@ -66,7 +66,11 @@ logic [INPUT_WIDTH - 1: 0]  din      = '0;
 logic                       valid_out;
 logic [OUTPUT_WIDTH - 1: 0] dout;
 
+// files
 int inFile, outFile, refFile;
+
+// sync events
+event finished;
 //-------------------------------------------------------------------------------------------
 
 /// calculate full precision output width
@@ -142,7 +146,7 @@ task automatic driver();
         end else begin
             //io error
             $error("%s: Unable to read input data file", TesterName);
-            $display("%s: Signal test FAILED", TesterName);
+            $display("%s: test FAILED", TesterName);
         end
     end
 endtask
@@ -159,12 +163,12 @@ task automatic monitorChecker();
             //check
             if ($fscanf(refFile, "%x\n", refDout) != 1) begin
                 $error("%s: Unable to read reference data file", TesterName);
-                $display("%s: Signal test FAILED", TesterName);
+                $display("%s: test FAILED", TesterName);
             end
             assert($signed(refDout) == $signed(cb.dout)) 
             else begin
                 $error("%s: Filter output (%d) doesn't match reference (%d) at step %d", TesterName, $signed(cb.dout), $signed(refDout), step);
-                $display("%s: Signal test FAILED", TesterName);
+                $display("%s: test FAILED", TesterName);
             end
 
             //dump
@@ -177,30 +181,29 @@ endtask
 // Test control
 initial
 begin
-    $display("*******************************************");
-    $display("%s: Fir filter signal test", TesterName);
-    $display("*******************************************");
+    ##1;
+    $display("%s: signal test started", TesterName);
     
     if (OUTPUT_WIDTH_FULL != calcOutWidthFull()) begin
         $error("%s: OUTPUT_WIDTH_FULL parameter doesn't match actual full bit width", TesterName);
-        $display("%s: Signal test FAILED", TesterName);
+        $display("%s: test FAILED", TesterName);
     end
     
     //open files
     inFile = $fopen(InFileName, "r");
     if (!inFile) begin
         $error("%s: Unable to open input data file for reading", TesterName);
-        $display("%s: Signal test FAILED", TesterName);
+        $display("%s: test FAILED", TesterName);
     end
     refFile = $fopen(RefFileName, "r");
     if (!refFile) begin
         $error("%s: Unable to open reference data file for reading", TesterName);
-        $display("%s: Signal test FAILED", TesterName);
+        $display("%s: test FAILED", TesterName);
     end
     outFile = $fopen(OutFileName, "w");
     if (!outFile) begin
         $error("%s: Unable to open output data file for writing", TesterName);
-        $display("%s: Signal test FAILED", TesterName);
+        $display("%s: test FAILED", TesterName);
     end
     
     // initial reset
@@ -213,13 +216,12 @@ begin
     driver();
     ##RESP_TIMEOUT;
 
-    $display("%s: Signal test finished SUCCESSFULLY", TesterName);
-    $display("*******************************************");
-    $stop(1);
+    $display("%s: test finished SUCCESSFULLY", TesterName);
     disable monitorChecker;
     $fclose(outFile);
     $fclose(inFile);
     $fclose(refFile);
+    ->finished;
 end
 
 endmodule
