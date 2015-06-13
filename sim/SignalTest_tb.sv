@@ -122,6 +122,7 @@ DUT
     .*
 );
 
+// Reset sequence
 task automatic reset(int duration);
     @cb;
     cb.rst        <= 1'b1;
@@ -130,15 +131,38 @@ task automatic reset(int duration);
     ##4;
 endtask
 
+// Driver
+task automatic driver();
+    forever begin
+        @cb;
+        
+        if ($fscanf(inFileRe, "%x\n", cb.din) == 1) begin
+            cb.valid_in <= 1'b1;
+        end else begin
+            //end of file or IO error
+            cb.din      <= '0;
+            cb.valid_in <= 1'b0;
+            return;
+        end
+    end
+endtask
+
+// Monitor and Checker
+task automatic monitorChecker();
+    forever begin
+        @cb;
+        if (cb.valid_out) begin
+            $fwrite(outFileRe, "%x\n", cb.dout);
+        end
+    end
+endtask
+
 // Test control
 initial
 begin
     $display("*******************************************");
     $display("Fir filter signal test");
     $display("*******************************************");
-    
-    // initial reset
-    reset(10);
     
     //open files
     inFileRe = $fopen(InFileNameRe, "r");
@@ -168,6 +192,9 @@ begin
         $error("Unable to open output data file for writing");
     end
     
+    // initial reset
+    reset(10);
+    
     // start checker and driver
     monChk: fork
         monitorChecker();
@@ -185,110 +212,4 @@ begin
     $fclose(refFileIm);
 end
 
-// Driver
-task automatic driver();
-endtask
-
-// Monitor and Checker
-task automatic monitorChecker();
-    forever begin
-        @cb;
-        if (cb.valid_out) begin
-            $fwrite(outFileRe, "%x\n", cb.dout);
-        end
-    end
-endtask
-
-/*task automatic stepResponse();
-    $display("stepResponse test");
-
-    //reset
-    cb.valid_in <= 1'b0;
-    reset(10);
-
-    //drive step
-    cb.din[INPUT_WIDTH - 1]    <= '1;
-    cb.din[INPUT_WIDTH - 2: 0] <= '0;
-    cb.valid_in <= 1'b1;
-    ##(NUM_TAPS);
-    
-    //flush filter pipeline
-    ##(RESP_TIMEOUT);
-    
-    //release data valid
-    cb.din <= '0;
-    cb.valid_in <= 1'b0;
-    ##RESP_TIMEOUT;
-endtask
-
-task automatic pulseResponse();
-    $display("pulseResponse test");
-
-    //reset
-    cb.valid_in <= 1'b0;
-    reset(10);
-
-    //drive pulse
-    cb.din[INPUT_WIDTH - 1]    <= '1;
-    cb.din[INPUT_WIDTH - 2: 0] <= '0;
-    cb.valid_in <= 1'b1;
-    ##1
-    cb.din <= '0;
-    ##(NUM_TAPS - 1);
-    
-    //flush filter pipeline
-    ##(RESP_TIMEOUT);
-
-    //release data valid
-    cb.valid_in <= 1'b0;
-    ##RESP_TIMEOUT;
-endtask
-
-task automatic resetResponse();
-    $display("resetResponse test");
-    
-    cb.din <= '0;
-    cb.valid_in <= 1'b0;
-    reset(10);
-
-    ##RESP_TIMEOUT;
-endtask
-
-task automatic stepResponseGaps();
-    $display("stepResponse test with gaps");
-
-    //reset
-    cb.valid_in <= 1'b0;
-    reset(10);
-
-    //drive step
-    for (int i = 0; i < NUM_TAPS; ++i) begin
-        cb.din[INPUT_WIDTH - 1]    <= '1;
-        cb.din[INPUT_WIDTH - 2: 0] <= '0;
-        cb.valid_in <= 1'b1;
-        ##1;
-        cb.valid_in                <= 1'b0;
-        
-        if (i%3 == 0) begin
-            cb.din                 <= '0;
-            ##1;
-        end
-        if (i%2 == 0) begin
-            cb.din[INPUT_WIDTH - 2: 0] <= '1;
-            ##1;
-        end
-    end
-    
-    //flush filter pipeline
-    cb.din[INPUT_WIDTH - 1]    <= '1;
-    cb.din[INPUT_WIDTH - 2: 0] <= '0;
-    cb.valid_in <= 1'b1;
-    ##(RESP_TIMEOUT);
-    
-    //release data valid
-    cb.din <= '0;
-    cb.valid_in <= 1'b0;
-    ##RESP_TIMEOUT;
-endtask
-*/
 endmodule
