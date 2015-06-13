@@ -52,164 +52,61 @@ localparam PIPELINE_ADD_RATIO = 1; // pipeline ratio for adders (0 - no register
 localparam OUTPUT_REG         = 1; // filter output register
 
 //-------------------------------------------------------------------------------------------
-
-// DUT i/f signals
-// in
-logic                       clk      = '0;
-logic                       rst      = '0;
-logic                       valid_in = '0;
-logic [INPUT_WIDTH - 1: 0]  din      = '0;
-
-// out
-logic                       valid_out;
-logic [OUTPUT_WIDTH - 1: 0] dout;
-
 // in/out files
-string InFileNameRe  = "sigdata_re.dax";
-string InFileNameIm  = "sigdata_im.dax";
-string RefFileNameRe = "refdata_re.dax";
-string RefFileNameIm = "refdata_im.dax";
-string OutFileNameRe = "tstdata_re.dax";
-string OutFileNameIm = "tstdata_im.dax";
+localparam string InFileNameRe  = "sigdata_re.dax";
+localparam string InFileNameIm  = "sigdata_im.dax";
+localparam string RefFileNameRe = "refdata_re.dax";
+localparam string RefFileNameIm = "refdata_im.dax";
+localparam string OutFileNameRe = "tstdata_re.dax";
+localparam string OutFileNameIm = "tstdata_im.dax";
 
-int inFileRe, inFileIm, outFileRe, outFileIm;
-int refFileRe, refFileIm;
 //-------------------------------------------------------------------------------------------
-
-/// calculate full precision output width
-function automatic int calcOutWidthFull();
-    longint Acc = 0;
-
-    for (int i = 0; i < NUM_TAPS; ++i) begin
-        longint tmp = $signed(COEFFS[i]);
-        tmp = (tmp >= 0) ? tmp : -tmp;
-        Acc += tmp;
-    end
-
-    return $clog2(Acc) + INPUT_WIDTH;
-endfunction
-
-// Clock generator
-initial
-begin
-    forever #(CLK_CYCLE/2) clk = ~clk;
-end
-
-// default clocking block
-default clocking cb @(posedge clk);
-    input  valid_out, dout;
-    output rst, valid_in, din;
-endclocking
-
-
-// DUT instance
-FirFilter
+SignalTester
 #(
+    .TesterName         ("Tester RE:"),
+    .InFileName         (InFileNameRe),
+    .RefFileName        (RefFileNameRe),
+    .OutFileName        (OutFileNameRe),
+    .COEFFS             (COEFFS),
+    .CLK_CYCLE          (CLK_CYCLE),
+    .RESP_TIMEOUT       (RESP_TIMEOUT),
     .INPUT_WIDTH        (INPUT_WIDTH),
     .COEFF_WIDTH        (COEFF_WIDTH),
     .OUTPUT_WIDTH       (OUTPUT_WIDTH),
     .OUTPUT_WIDTH_FULL  (OUTPUT_WIDTH_FULL),
     .SYMMETRY           (SYMMETRY),
     .NUM_TAPS           (NUM_TAPS),
-    .COEFFS             (COEFFS),
     .PIPELINE_MUL       (PIPELINE_MUL),
     .PIPELINE_PREADD    (PIPELINE_PREADD),
     .PIPELINE_ADD_RATIO (PIPELINE_ADD_RATIO),
     .OUTPUT_REG         (OUTPUT_REG)
 )
-DUT
+i_SignalTester_re
 (
-    .*
 );
 
-// Reset sequence
-task automatic reset(int duration);
-    @cb;
-    cb.rst        <= 1'b1;
-    ##duration;
-    cb.rst        <= 1'b0;
-    ##4;
-endtask
-
-// Driver
-task automatic driver();
-    forever begin
-        @cb;
-        
-        if ($fscanf(inFileRe, "%x\n", cb.din) == 1) begin
-            cb.valid_in <= 1'b1;
-        end else begin
-            //end of file or IO error
-            cb.din      <= '0;
-            cb.valid_in <= 1'b0;
-            return;
-        end
-    end
-endtask
-
-// Monitor and Checker
-task automatic monitorChecker();
-    forever begin
-        @cb;
-        if (cb.valid_out) begin
-            $fwrite(outFileRe, "%x\n", cb.dout);
-        end
-    end
-endtask
-
-// Test control
-initial
-begin
-    $display("*******************************************");
-    $display("Fir filter signal test");
-    $display("*******************************************");
-    
-    //open files
-    inFileRe = $fopen(InFileNameRe, "r");
-    if (!inFileRe) begin
-        $error("Unable to open input data file for reading");
-    end
-    inFileIm = $fopen(InFileNameIm, "r");
-    if (!inFileIm) begin
-        $error("Unable to open input data file for reading");
-    end
-    
-    refFileRe = $fopen(RefFileNameRe, "r");
-    if (!refFileRe) begin
-        $error("Unable to open reference data file for reading");
-    end
-    refFileIm = $fopen(RefFileNameIm, "r");
-    if (!refFileIm) begin
-        $error("Unable to open reference data file for reading");
-    end
-    
-    outFileRe = $fopen(OutFileNameRe, "w");
-    if (!outFileRe) begin
-        $error("Unable to open output data file for writing");
-    end
-    outFileIm = $fopen(OutFileNameIm, "w");
-    if (!outFileIm) begin
-        $error("Unable to open output data file for writing");
-    end
-    
-    // initial reset
-    reset(10);
-    
-    // start checker and driver
-    monChk: fork
-        monitorChecker();
-    join_none;
-    driver();
-
-    $display("Signal test finished SUCCESSFULLY");
-    $stop(1);
-    disable monitorChecker;
-    $fclose(outFileRe);
-    $fclose(outFileIm);
-    $fclose(inFileRe);
-    $fclose(inFileIm);
-    $fclose(refFileRe);
-    $fclose(refFileIm);
-end
+SignalTester
+#(
+    .TesterName         ("Tester IM:"),
+    .InFileName         (InFileNameIm),
+    .RefFileName        (RefFileNameIm),
+    .OutFileName        (OutFileNameIm),
+    .COEFFS             (COEFFS),
+    .CLK_CYCLE          (CLK_CYCLE),
+    .RESP_TIMEOUT       (RESP_TIMEOUT),
+    .INPUT_WIDTH        (INPUT_WIDTH),
+    .COEFF_WIDTH        (COEFF_WIDTH),
+    .OUTPUT_WIDTH       (OUTPUT_WIDTH),
+    .OUTPUT_WIDTH_FULL  (OUTPUT_WIDTH_FULL),
+    .SYMMETRY           (SYMMETRY),
+    .NUM_TAPS           (NUM_TAPS),
+    .PIPELINE_MUL       (PIPELINE_MUL),
+    .PIPELINE_PREADD    (PIPELINE_PREADD),
+    .PIPELINE_ADD_RATIO (PIPELINE_ADD_RATIO),
+    .OUTPUT_REG         (OUTPUT_REG)
+)
+i_SignalTester_im
+(
+);
 
 endmodule
