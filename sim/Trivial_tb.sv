@@ -24,7 +24,8 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-module FirFilter_tb
+// Trivial FIR filter test
+module Trivial_tb
 (
 );
 /// TB params
@@ -216,7 +217,7 @@ endtask
 initial
 begin
     $display("*******************************************");
-    $display("Fir filter test");
+    $display("Fir filter trivial test");
     $display("*******************************************");
     
     // initial reset
