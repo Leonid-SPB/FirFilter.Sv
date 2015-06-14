@@ -24,7 +24,7 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Signal processing tester: 
+// Signal processing tester, burst mode: 
 //   read input signal, perform filtering, 
 //   compare result with golden signal and dumb to output file
 module SignalTester
