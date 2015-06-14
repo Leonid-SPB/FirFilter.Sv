@@ -34,13 +34,14 @@ localparam CLK_CYCLE    = 10ns;
 localparam RESP_TIMEOUT = 100;
 
 /// Fir filter params
-localparam INPUT_WIDTH  = 16;
-localparam COEFF_WIDTH  = 8;
-localparam OUTPUT_WIDTH = 26;
+localparam INPUT_WIDTH       = 16;
+localparam COEFF_WIDTH       = 16;
+localparam OUTPUT_WIDTH      = 33;
+localparam OUTPUT_WIDTH_FULL = 33;
 
 localparam SYMMETRY     = 1; // 0 - Non-symmetric, 1 - Symmetric, 2 - Anti-symmetric
-localparam NUM_TAPS     = 37;
-localparam logic [COEFF_WIDTH - 1: 0] COEFFS [0: NUM_TAPS - 1] = '{8, 6, 0, -7, -11, -8, 0, 10, 16, 12, 0, -16, -26, -22, 0, 38, 80, 114, 127, 114, 80, 38, 0, -22, -26, -16, 0, 12, 16, 10, 0, -8, -11, -7, 0, 6, 8};
+localparam NUM_TAPS     = 40;
+localparam logic [COEFF_WIDTH - 1: 0] COEFFS [0: NUM_TAPS - 1] = '{/*-283*/0, -858, -1082, -421, 643, 708, -430, -1101, 43, 1473, 665, -1682, -1741, 1510, 3302, -609, -5762, -2213, 12277, 26313, 26313, 12277, -2213, -5762, -609, 3302, 1510, -1741, -1682, 665, 1473, 43, -1101, -430, 708, 643, -421, -1082, -858, -283};
 
 localparam PIPELINE_MUL       = 1; // pipeline register for multiplier
 localparam PIPELINE_PREADD    = 1; // pipeline pre-adder (for symmetric/anti-symmetric filters)
@@ -60,11 +61,6 @@ logic [INPUT_WIDTH - 1: 0]  din      = '0;
 // out
 logic                       valid_out;
 logic [OUTPUT_WIDTH - 1: 0] dout;
-
-// in/out files
-string InFileName  = "infile.dat";
-string OutFileName = "outfile.dat";
-int inFile, outFile;
 //-------------------------------------------------------------------------------------------
 
 /// calculate full precision output width
@@ -99,7 +95,7 @@ FirFilter
     .INPUT_WIDTH        (INPUT_WIDTH),
     .COEFF_WIDTH        (COEFF_WIDTH),
     .OUTPUT_WIDTH       (OUTPUT_WIDTH),
-    .OUTPUT_WIDTH_FULL  (calcOutWidthFull()),
+    .OUTPUT_WIDTH_FULL  (OUTPUT_WIDTH_FULL),
     .SYMMETRY           (SYMMETRY),
     .NUM_TAPS           (NUM_TAPS),
     .COEFFS             (COEFFS),
@@ -217,38 +213,26 @@ endtask
 initial
 begin
     $display("*******************************************");
-    $display("Fir filter trivial test");
+    $display("Fir filter trivial test started");
     $display("*******************************************");
+    
+    if (OUTPUT_WIDTH_FULL != calcOutWidthFull()) begin
+        $error("OUTPUT_WIDTH_FULL parameter doesn't match actual full bit width");
+        $stop(1);
+    end
     
     // initial reset
     reset(10);
-    
-    outFile = $fopen(OutFileName, "w");
-    if (!outFile) begin
-        $error("Unable to open output file for writing");
-    end
-    
-    dumper: fork
-        doutDumper();
-    join_none;
 
     pulseResponse();
     stepResponse();
     resetResponse();
     stepResponseGaps();
 
+    $display("*******************************************");
+    $display("Fir filter trivial test finished");
+    $display("*******************************************");
     $stop(1);
-    disable dumper;
-    $fclose(outFile);
 end
-
-// Output dumper
-task automatic doutDumper();
-    forever begin
-        @cb;
-        //if (cb.valid_out)
-            $fwrite(outFile, "%x ", cb.dout);
-    end
-endtask
 
 endmodule

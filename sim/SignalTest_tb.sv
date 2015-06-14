@@ -110,7 +110,7 @@ i_SignalTester_im
 );
 
 logic [OUTPUT_WIDTH_FULL: 0] doutAbs;
-assign doutAbs = $sqrt($pow($signed(i_SignalTester_re.dout), 2) + $pow($signed(i_SignalTester_im.dout), 2));
+assign doutAbs = (i_SignalTester_re.valid_out & ~i_SignalTester_re.rst) ? $sqrt($pow($signed(i_SignalTester_re.dout), 2) + $pow($signed(i_SignalTester_im.dout), 2)) : '0;
 
 // Test control
 initial
@@ -125,6 +125,7 @@ begin
     join
     $display("*******************************************");
     $display("Signal tests finished SUCCESSFULLY");
+    $display("*******************************************");
     $stop(1);
 end
 endmodule

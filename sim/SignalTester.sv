@@ -58,7 +58,7 @@ timeunit 1ns;
 // DUT i/f signals
 // in
 logic                       clk      = '0;
-logic                       rst      = '0;
+logic                       rst      = '1;
 logic                       valid_in = '0;
 logic [INPUT_WIDTH - 1: 0]  din      = '0;
 
@@ -131,6 +131,7 @@ endtask
 // Driver
 task automatic driver();
     integer res = 0;
+    int step = 0;
     
     forever begin
         @cb;
@@ -145,9 +146,11 @@ task automatic driver();
             return;
         end else begin
             //io error
-            $error("%s: Unable to read input data file", TesterName);
+            $error("%s: Unable to read input data file at step %0d", TesterName, step);
             $display("%s: test FAILED", TesterName);
+            $stop(1);
         end
+        ++step;
     end
 endtask
 
@@ -162,13 +165,15 @@ task automatic monitorChecker();
         if (cb.valid_out) begin
             //check
             if ($fscanf(refFile, "%x\n", refDout) != 1) begin
-                $error("%s: Unable to read reference data file", TesterName);
+                $error("%s: Unable to read reference data file at step %0d", TesterName, step);
                 $display("%s: test FAILED", TesterName);
+                $stop(1);
             end
             assert($signed(refDout) == $signed(cb.dout)) 
             else begin
-                $error("%s: Filter output (%d) doesn't match reference (%d) at step %d", TesterName, $signed(cb.dout), $signed(refDout), step);
+                $error("%s: Filter output (%0d) doesn't match reference (%0d) at step %0d", TesterName, $signed(cb.dout), $signed(refDout), step);
                 $display("%s: test FAILED", TesterName);
+                $stop(1);
             end
 
             //dump
@@ -187,6 +192,7 @@ begin
     if (OUTPUT_WIDTH_FULL != calcOutWidthFull()) begin
         $error("%s: OUTPUT_WIDTH_FULL parameter doesn't match actual full bit width", TesterName);
         $display("%s: test FAILED", TesterName);
+        $stop(1);
     end
     
     //open files
@@ -194,16 +200,19 @@ begin
     if (!inFile) begin
         $error("%s: Unable to open input data file for reading", TesterName);
         $display("%s: test FAILED", TesterName);
+        $stop(1);
     end
     refFile = $fopen(RefFileName, "r");
     if (!refFile) begin
         $error("%s: Unable to open reference data file for reading", TesterName);
         $display("%s: test FAILED", TesterName);
+        $stop(1);
     end
     outFile = $fopen(OutFileName, "w");
     if (!outFile) begin
         $error("%s: Unable to open output data file for writing", TesterName);
         $display("%s: test FAILED", TesterName);
+        $stop(1);
     end
     
     // initial reset
