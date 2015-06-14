@@ -46,12 +46,12 @@ DataBits  = 16;
 
 % Data file names
 FiltSpecFile = 'filter_descr.txt'; % filter specification/description
-SigFileRe  = 'sigdata_re.dax'; %test signal
-SigFileIm  = 'sigdata_im.dax'; %test signal
-RefFileRe  = 'refdata_re.dax'; %reference data (filtered signal)
-RefFileIm  = 'refdata_im.dax'; %reference data (filtered signal)
-TestFileRe = 'tstdata_re.dax'; %test data from simulator (filtered signal)
-TestFileIm = 'tstdata_im.dax'; %test data from simulator (filtered signal)
+SigFileRe  = '../sim/sigdata_re.dax'; %test signal
+SigFileIm  = '../sim/sigdata_im.dax'; %test signal
+RefFileRe  = '../sim/refdata_re.dax'; %reference data (filtered signal)
+RefFileIm  = '../sim/refdata_im.dax'; %reference data (filtered signal)
+TestFileRe = '../sim/tstdata_re.dax'; %test data from simulator (filtered signal)
+TestFileIm = '../sim/tstdata_im.dax'; %test data from simulator (filtered signal)
 
 %% Filter Quantization
 ATarget = 2^(CoeffBits - 1) - 1;
@@ -63,17 +63,17 @@ FiltCoeffsFixP = fi(FiltCoeffsFixP, 1, CoeffBits, 0);
 
 %% Print filter specification
 SpecStr = '';
-SpecStr = [SpecStr sprintf('Filter description: %s\n', FiltDescr)];
-SpecStr = [SpecStr sprintf('\n')];
-SpecStr = [SpecStr sprintf('Number of taps: %d\n', TapsNum)];
-SpecStr = [SpecStr sprintf('Symmetry      : %d\n', FiltSymmetry)];
-SpecStr = [SpecStr sprintf('Coefficients unscaled: [%s]\n', num2csstr(FiltCoeffs))];
-SpecStr = [SpecStr sprintf('CoeffBits : %d\n', CoeffBits)];
-SpecStr = [SpecStr sprintf('DataBits  : %d\n', DataBits)];
-SpecStr = [SpecStr sprintf('ResultBits: %d\n', OutputBitsFullPrecision)];
-SpecStr = [SpecStr sprintf('Coefficient scale factor: %d\n', ScaleFactor2)];
-SpecStr = [SpecStr sprintf('Coefficients scaled: [%s]\n', num2csstr(int64(FiltCoeffsFixP)))];
-SpecStr = [SpecStr sprintf('\n')];
+SpecStr = [SpecStr sprintf('Filter description: %s\r\n', FiltDescr)];
+SpecStr = [SpecStr sprintf('\r\n')];
+SpecStr = [SpecStr sprintf('Number of taps: %d\r\n', TapsNum)];
+SpecStr = [SpecStr sprintf('Symmetry      : %d\r\n', FiltSymmetry)];
+SpecStr = [SpecStr sprintf('Coefficients unscaled: [%s]\r\n', num2csstr(FiltCoeffs))];
+SpecStr = [SpecStr sprintf('CoeffBits : %d\r\n', CoeffBits)];
+SpecStr = [SpecStr sprintf('DataBits  : %d\r\n', DataBits)];
+SpecStr = [SpecStr sprintf('ResultBits: %d\r\n', OutputBitsFullPrecision)];
+SpecStr = [SpecStr sprintf('Coefficient scale factor: %d\r\n', ScaleFactor2)];
+SpecStr = [SpecStr sprintf('Coefficients scaled: [%s]\r\n', num2csstr(int64(FiltCoeffsFixP)))];
+SpecStr = [SpecStr sprintf('\r\n')];
 disp(SpecStr);
 
 specFid = fopen(FiltSpecFile, 'w');
@@ -82,37 +82,3 @@ if specFid < 0
 end
 fprintf(specFid, '%s', SpecStr);
 fclose(specFid);
-
-%% Test signal, sine
-% change test signal parameters as necessary
-Fs = 10000; %Hz
-Ts = 1/Fs;
-Np = 1000;
-t = 0 : Ts : (Np - 1)*Ts;
-w = 50; %Hz
-ZScaleFactor2 = 2^(DataBits - 1) - 1;
-
-% test signal
-z_sine = exp(2*pi*1i*w*t);
-z_sine_fixp = round(z_sine * ZScaleFactor2);
-z_sine_fixp = fi(z_sine_fixp, 1, DataBits, 0);
-
-% filtered signal
-y_sine = filter(FiltCoeffs, 1, z_sine);
-y_sine_fixp = filter(FiltCoeffsFixP, 1, z_sine_fixp);
-y_sine_fixp = fi(y_sine_fixp, 1, OutputBitsFullPrecision, 0);
-
-figure(1)
-title('Sine wave test');
-plot(t, real(z_sine_fixp), 'b');
-hold on
-plot(t, real(y_sine_fixp)/ScaleFactor2, 'g');
-legend('original', 'filtered');
-
-%save test signal and golden results
-saveSignalFixp(SigFileRe, real(z_sine_fixp));
-saveSignalFixp(SigFileIm, imag(z_sine_fixp));
-saveSignalFixp(RefFileRe, real(y_sine_fixp));
-saveSignalFixp(RefFileIm, imag(y_sine_fixp));
-
-%% Test signal, sweep
